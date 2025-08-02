@@ -2,15 +2,12 @@ pipeline {
   agent any
 
   stages {
-    stage('Checkout') {
+    stage('Clone') {
       steps {
-        dir('agentic-mvp') {
-          // Local checkout simulated by Jenkins working dir
-          echo 'Using local files in agentic-mvp directory'
-        }
+        checkout scm
+        sh 'pwd && ls -la'
       }
     }
-
     stage('Build Docker Image') {
       steps {
         dir('agentic-mvp') {
