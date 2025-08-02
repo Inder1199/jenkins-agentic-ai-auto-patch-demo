@@ -1,22 +1,17 @@
 pipeline {
-  agent {
-    docker {
-      image 'docker:24.0.5' // you can use any recent Docker image
-      args '-v /var/run/docker.sock:/var/run/docker.sock' // enables Docker inside Jenkins agent
-    }
-  }
+  agent any
 
   environment {
     TRIVY_VERSION = "0.51.1"
   }
 
   stages {
-    stage('Prepare') {
+    stage('Check Working Dir') {
       steps {
         sh '''
-          echo "Current directory:"
+          echo "Present Working Directory:"
           pwd
-          echo "Files:"
+          echo "Contents:"
           ls -la
         '''
       }
@@ -30,16 +25,16 @@ pipeline {
       }
     }
 
-    stage('Install Trivy') {
+    stage('Install Trivy (if missing)') {
       steps {
         sh '''
           if ! command -v trivy >/dev/null 2>&1; then
             echo "Installing Trivy..."
             wget https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz
             tar zxvf trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz
-            mv trivy /usr/local/bin/
+            sudo mv trivy /usr/local/bin/
           else
-            echo "Trivy is already installed"
+            echo "Trivy already installed"
           fi
         '''
       }
