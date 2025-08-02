@@ -1,11 +1,5 @@
 pipeline {
-  agent any {
-    docker {
-      image 'docker:24.0.5-dind' // or 'docker:latest'
-      args '-v /var/run/docker.sock:/var/run/docker.sock'
-    }
-  }
-
+  agent any
   environment {
     TRIVY_VERSION = "0.51.1"
   }
