@@ -67,6 +67,18 @@ pipeline {
         '''
       }
     }
+
+    stage('Convert Patch Suggestions to HTML') {
+      steps {
+        sh '''
+          python3 -m venv .venv
+          . .venv/bin/activate
+          pip install -r requirements.txt
+          python -c "import markdown, pathlib; pathlib.Path('scan_output/gpt_patch_suggestions.html').write_text(markdown.markdown(pathlib.Path('${WORKSPACE}/${OUTPUT_FILE}').read_text()))"
+        '''
+      }
+    }
+
     stage('Auto Commit & PR (Mandatory)') {
       steps {
         withCredentials([string(credentialsId: 'GH_TOKEN', variable: 'GH_TOKEN')]) {
