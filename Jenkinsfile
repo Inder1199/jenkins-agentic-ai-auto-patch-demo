@@ -126,7 +126,6 @@ pipeline {
     }
   }
 
-
   post {
     always {
       echo 'Pipeline completed. Reports and patch suggestions archived.'
