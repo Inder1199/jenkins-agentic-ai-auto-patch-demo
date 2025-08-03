@@ -62,15 +62,6 @@ pipeline {
     stage('Convert Patch Suggestions to HTML') {
       steps {
         sh '''
-          pip3 install markdown --quiet
-          python3 -c "import markdown, pathlib; pathlib.Path('scan_output/gpt_patch_suggestions.html').write_text(markdown.markdown(pathlib.Path('${WORKSPACE}/${OUTPUT_FILE}').read_text()))"
-        '''
-      }
-    }
-
-    stage('Convert Patch Suggestions to HTML') {
-      steps {
-        sh '''
           python3 -m venv .venv
           . .venv/bin/activate
           pip install -r requirements.txt
