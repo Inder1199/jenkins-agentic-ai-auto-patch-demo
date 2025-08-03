@@ -3,6 +3,7 @@ pipeline {
   environment {
     TRIVY_VERSION = "0.51.1"
     PATH = "/usr/local/bin:${env.PATH}"
+    DOCKER_CONTEXT = "desktop-linux"
   }
 
   stages {
@@ -20,6 +21,8 @@ pipeline {
     stage('Build Docker Image') {
       steps {
         dir('agentic-mvp') {
+          sh 'docker context use $DOCKER_CONTEXT'
+          sh 'docker version'
           sh 'docker build -t local-app .'
         }
       }
