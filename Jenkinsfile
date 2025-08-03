@@ -7,7 +7,7 @@ pipeline {
     REPORT_JSON = "trivy_report.json"
     REPORT_MD = "reports/trivy_report.md"
     REPORT_HTML = "reports/trivy_report.html"
-    PATH = "/opt/homebrew/bin:$PATH"
+    PATH = "/usr/local/bin:${env.PATH}"
   }
 
   stages {
@@ -20,7 +20,16 @@ pipeline {
 
     stage('Build Docker Image') {
       steps {
-        sh 'docker build -t ${IMAGE_NAME} .'
+        dir("${env.WORKSPACE}") {
+          sh '''
+            echo "Present Working Directory:"
+            pwd
+            echo "Contents:"
+            ls -la
+    
+            docker build -t local-app .
+          '''
+        }
       }
     }
 
