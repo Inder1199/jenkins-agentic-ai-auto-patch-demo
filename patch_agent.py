@@ -1,24 +1,18 @@
 import json
 import os
 import sys
-import time
-from openai import OpenAI
+import subprocess
 
-# Environment variable check
-OPENAI_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_KEY:
-    print("❌ OPENAI_API_KEY is not set.")
-    sys.exit(1)
-
-client = OpenAI(api_key=OPENAI_KEY)
-MODEL = "gpt-3.5-turbo"
-
-# Load Trivy scan report
+OLLAMA_MODEL = "llama3"
 TRIVY_REPORT = "scan_output/trivy_report.json"
+OUTPUT_FILE = "scan_output/gpt_patch_suggestions.md"
+
+# Check if Trivy scan report exists
 if not os.path.exists(TRIVY_REPORT):
     print("❌ Trivy report not found at scan_output/trivy_report.json")
     sys.exit(1)
 
+# Load Trivy report
 with open(TRIVY_REPORT, "r") as f:
     data = json.load(f)
 
@@ -48,23 +42,25 @@ print(f"🚨 Selected {len(critical_vulns)} CRITICAL vulnerabilities for patch s
 
 patch_suggestions = []
 
-def get_patch_suggestion(prompt: str) -> str:
+# Use Ollama CLI to get suggestion from llama3
+def get_ollama_suggestion(prompt: str) -> str:
     try:
-        response = client.chat.completions.create(
-            model=MODEL,
-            messages=[
-                {"role": "system", "content": "You are a security DevOps assistant."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=500,
-            temperature=0.3,
+        result = subprocess.run(
+            ["ollama", "run", OLLAMA_MODEL],
+            input=prompt.encode(),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=60
         )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        print(f"⚠️ GPT request failed: {e}")
+        if result.returncode != 0:
+            print(f"⚠️ Ollama failed: {result.stderr.decode().strip()}")
+            return None
+        return result.stdout.decode().strip()
+    except subprocess.TimeoutExpired:
+        print("⚠️ Ollama inference timed out.")
         return None
 
-# Process each critical vulnerability
+# Process and generate patch suggestions
 for target_name, vuln in critical_vulns:
     vuln_id = vuln.get("VulnerabilityID")
     pkg = vuln.get("PkgName")
@@ -76,29 +72,29 @@ for target_name, vuln in critical_vulns:
     print(f"\n📦 Processing: {vuln_id} in {pkg} ({severity})")
 
     prompt = (
+        f"You are a DevSecOps AI assistant.\n\n"
         f"Vulnerability ID: {vuln_id}\n"
         f"Package: {pkg}\n"
         f"Installed Version: {installed}\n"
         f"Fixed Version: {fixed}\n"
         f"Severity: {severity}\n"
         f"Description: {description}\n\n"
-        "Suggest a patch or mitigation steps for this vulnerability in markdown format. "
-        "Keep it concise and clear."
+        "Suggest a patch or mitigation for this vulnerability. "
+        "Return the answer in Markdown format."
     )
 
-    suggestion = get_patch_suggestion(prompt)
+    suggestion = get_ollama_suggestion(prompt)
     if suggestion:
         patch_suggestions.append(f"## {vuln_id} ({severity}) in `{pkg}`\n\n{suggestion}\n")
     else:
-        print(f"⚠️ Skipped {vuln_id} due to GPT failure.")
+        print(f"⚠️ Skipped {vuln_id} due to Ollama failure.")
 
-# Write results
-output_path = "scan_output/gpt_patch_suggestions.md"
+# Write results to markdown
 if patch_suggestions:
     os.makedirs("scan_output", exist_ok=True)
-    with open(output_path, "w") as f:
-        f.write("# GPT-Generated Patch Suggestions (PoC)\n\n")
+    with open(OUTPUT_FILE, "w") as f:
+        f.write("# Ollama LLM Patch Suggestions (PoC)\n\n")
         f.write("\n---\n\n".join(patch_suggestions))
-    print(f"\n✅ Patch suggestions written to `{output_path}`")
+    print(f"\n✅ Patch suggestions written to `{OUTPUT_FILE}`")
 else:
-    print("\n⚠️ No suggestions generated. Check GPT access and try again.")
+    print("\n⚠️ No suggestions generated.")
