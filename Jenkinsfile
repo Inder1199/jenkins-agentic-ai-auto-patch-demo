@@ -101,14 +101,31 @@ pipeline {
     }
   }
 
-    stage('Archive Reports') {
-      steps {
-        archiveArtifacts artifacts: 'reports/*', fingerprint: true
-        archiveArtifacts artifacts: 'scan_output/*.md', fingerprint: true
-        archiveArtifacts artifacts: 'scan_output/*.html', fingerprint: true
+  stage('Archive Reports') {
+    steps {
+      script {
+        if (fileExists('reports')) {
+          archiveArtifacts artifacts: 'reports/*', fingerprint: true
+        } else {
+          echo "No report artifacts found in 'reports/'"
+        }
+
+        if (fileExists('scan_output/gpt_patch_suggestions.md')) {
+          archiveArtifacts artifacts: 'scan_output/*.md', fingerprint: true
+        } else {
+          echo "No Markdown report found in 'scan_output/'"
+        }
+
+        def htmlFiles = sh(script: "find scan_output -name '*.html' | wc -l", returnStdout: true).trim()
+        if (htmlFiles != "0") {
+          archiveArtifacts artifacts: 'scan_output/*.html', fingerprint: true
+        } else {
+          echo "No HTML files found to archive in 'scan_output/'"
+        }
       }
     }
   }
+
 
   post {
     always {
