@@ -64,7 +64,7 @@ pipeline {
         sh '''
           python3 -m venv .venv
           source .venv/bin/activate
-          pip install -r /workspaces/jenkins-agentic-ai-mvp-devsecops/sample_app/requirements.txt
+          pip install -r sample_app/requirements.txt
           python3 -c "import markdown, pathlib; pathlib.Path('scan_output/gpt_patch_suggestions.html').write_text(markdown.markdown(pathlib.Path('${WORKSPACE}/scan_output/gpt_patch_suggestions.md').read_text()))"
         '''
       }
