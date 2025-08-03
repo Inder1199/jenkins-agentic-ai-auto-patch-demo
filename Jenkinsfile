@@ -54,9 +54,15 @@ pipeline {
 
     stage('Patch Vulnerabilities (GPT Agent)') {
       steps {
-        sh 'python3 patch_agent.py'
+        withCredentials([string(credentialsId: 'OPENAI_API_KEY', variable: 'OPENAI_API_KEY')]) {
+          sh '''
+            echo "🔐 Running GPT patch agent with OpenAI key..."
+            python3 patch_agent.py
+          '''
+        }
       }
     }
+
 
     stage('Archive Reports') {
       steps {

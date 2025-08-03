@@ -1,10 +1,11 @@
 import json
-import openai
 import os
 import sys
+from openai import OpenAI
+from openai.types.chat import ChatCompletionMessage
 
-# Configure OpenAI API key
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# Create OpenAI client
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Load Trivy scan results
 try:
@@ -59,7 +60,7 @@ for idx, target in enumerate(results):
         )
 
         try:
-            response = openai.ChatCompletion.create(
+            response = client.chat.completions.create(
                 model="gpt-4",
                 messages=[
                     {"role": "system", "content": "You are a security DevOps assistant."},
