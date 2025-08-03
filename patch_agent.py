@@ -2,10 +2,20 @@ import json
 import os
 import sys
 import subprocess
+import socket
 
 OLLAMA_MODEL = "llama3"
 TRIVY_REPORT = "scan_output/trivy_report.json"
 OUTPUT_FILE = "scan_output/gpt_patch_suggestions.md"
+
+def is_ollama_running(host="localhost", port=11434) -> bool:
+    """Check if ollama serve is running."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        return sock.connect_ex((host, port)) == 0
+
+if not is_ollama_running():
+    print("❌ Ollama server is not running. Please run: `ollama serve &`")
+    sys.exit(1)
 
 # Check if Trivy scan report exists
 if not os.path.exists(TRIVY_REPORT):
@@ -42,7 +52,6 @@ print(f"🚨 Selected {len(critical_vulns)} CRITICAL vulnerabilities for patch s
 
 patch_suggestions = []
 
-# Use Ollama CLI to get suggestion from llama3
 def get_ollama_suggestion(prompt: str) -> str:
     try:
         result = subprocess.run(
@@ -50,14 +59,17 @@ def get_ollama_suggestion(prompt: str) -> str:
             input=prompt.encode(),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            timeout=60
+            timeout=90  # Increased timeout
         )
         if result.returncode != 0:
-            print(f"⚠️ Ollama failed: {result.stderr.decode().strip()}")
+            print(f"⚠️ Ollama error: {result.stderr.decode().strip()}")
             return None
         return result.stdout.decode().strip()
     except subprocess.TimeoutExpired:
-        print("⚠️ Ollama inference timed out.")
+        print("⚠️ Ollama inference timed out. Consider increasing system resources.")
+        return None
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
         return None
 
 # Process and generate patch suggestions
