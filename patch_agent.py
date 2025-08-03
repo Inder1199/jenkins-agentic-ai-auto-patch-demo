@@ -1,18 +1,16 @@
 import os
-import openai
 import json
+from openai import OpenAI
 
-# Set API key from environment
-openai.api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-with open("trivy_report.json", "r") as f:
+with open("scan_output/trivy_report.json", "r") as f:
     data = json.load(f)
 
-# Example GPT call (simplified)
 for vuln in data.get("Results", []):
     for finding in vuln.get("Vulnerabilities", []):
         prompt = f"Suggest a patch or mitigation for CVE: {finding['VulnerabilityID']}"
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-4",
             messages=[
                 {"role": "system", "content": "You are a DevSecOps assistant."},
