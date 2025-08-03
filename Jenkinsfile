@@ -23,6 +23,9 @@ pipeline {
         dir('agentic-mvp') {
           sh 'docker context use $DOCKER_CONTEXT'
           sh 'docker version'
+          sh 'cat Dockerfile' 
+          sh 'pwd'
+          sh 'ls -la'
           sh 'sh "docker build -t local-app -f /Users/user/.jenkins/workspace/agentic-ai-mvp/Dockerfile /Users/user/.jenkins/workspace/agentic-ai-mvp"'
         }
       }
