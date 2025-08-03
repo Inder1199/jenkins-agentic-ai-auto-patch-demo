@@ -71,6 +71,14 @@ pipeline {
         }
       }
     }
+
+    stage('Archive Trivy Report') {
+      steps {
+        dir("${env.WORKSPACE}") {
+          archiveArtifacts artifacts: 'trivy_report.json', fingerprint: true
+        }
+      }
+}
   }
 }
 
