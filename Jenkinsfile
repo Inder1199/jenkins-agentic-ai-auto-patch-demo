@@ -126,9 +126,11 @@ pipeline {
     }
   }
 
-  post {
-    always {
-      echo 'Pipeline completed. Reports and patch suggestions archived.'
-    }
+} // <-- ✅ THIS closes the `stages` block
+
+post {
+  always {
+    echo 'Pipeline completed. Reports and patch suggestions archived.'
   }
 }
+
