@@ -58,8 +58,13 @@ pipeline {
 
     stage('Run Patch Agent') {
       steps {
-        dir('agentic-mvp') {
-          sh 'python3 patch_agent.py'
+        dir("${env.WORKSPACE}") {
+          sh '''
+            echo "Running patch agent from:"
+            pwd
+            ls -la
+            python3 patch_agent.py
+          '''
         }
       }
     }
