@@ -2,119 +2,82 @@ pipeline {
   agent any
 
   environment {
-    TRIVY_VERSION = "0.51.1"
-    PATH = "/usr/local/bin:${env.PATH}"
-    DOCKER_CONTEXT = "desktop-linux"
+    OPENAI_API_KEY = credentials('OPENAI_API_KEY')
+    IMAGE_NAME = "local-app"
+    REPORT_JSON = "trivy_report.json"
+    REPORT_MD = "reports/trivy_report.md"
+    REPORT_HTML = "reports/trivy_report.html"
   }
 
   stages {
-    stage('Check Working Dir') {
+
+    stage('Checkout') {
       steps {
-        sh '''
-          echo "PWD: $(pwd)"
-          echo "Listing:"
-          ls -la
-        '''
+        git 'https://github.com/Inder1199/jenkins-agentic-ai-mvp-devsecops.git'
       }
     }
 
     stage('Build Docker Image') {
       steps {
+        sh 'docker build -t ${IMAGE_NAME} .'
+      }
+    }
+
+    stage('Run Trivy Scan') {
+      steps {
+        sh 'mkdir -p reports'
+        sh 'trivy image --format json -o ${REPORT_JSON} ${IMAGE_NAME}'
+      }
+    }
+
+    stage('Generate Reports') {
+      steps {
         sh '''
-          docker build -t local-app .
+          python3 trivy_to_md.py ${REPORT_JSON} > ${REPORT_MD}
+          python3 trivy_to_html.py ${REPORT_JSON} > ${REPORT_HTML}
         '''
       }
     }
 
-    stage('Install Trivy') {
+    stage('Patch Vulnerabilities (GPT Agent)') {
       steps {
-        sh '''
-          if ! command -v trivy >/dev/null 2>&1; then
-            echo "Installing Trivy..."
-            wget -q https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz
-            tar zxvf trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz
-            sudo mv trivy /usr/local/bin/
-          else
-            echo "Trivy is already installed."
-          fi
-        '''
-      }
-    }
-
-    stage('Trivy Scan') {
-      steps {
-        sh '''
-          mkdir -p reports
-          trivy fs --format json --output reports/trivy_report.json sample_app/
-          ls -lh reports/trivy_report.json
-        '''
-      }
-    }
-
-    stage('Patch Agent') {
-      when {
-        expression { fileExists('patch_agent.py') }
-      }
-      steps {
-        sh '''
-          echo "Running patch agent"
-          python3 patch_agent.py
-        '''
-      }
-    }
-
-    stage('Generate Markdown Report') {
-      steps {
-        sh '''
-          python3 trivy_to_md.py reports/trivy_report.json > reports/trivy_report.md
-        '''
+        sh 'python3 patch_agent.py'
       }
     }
 
     stage('Archive Reports') {
       steps {
-        archiveArtifacts artifacts: 'reports/**', fingerprint: true
+        archiveArtifacts artifacts: 'reports/*', fingerprint: true
       }
     }
 
-        stage('Generate HTML Report') {
-      steps {
-        sh '''
-          python3 trivy_to_html.py reports/trivy_report.json
-        '''
-      }
-    }
-
-    stage('Git Commit + Create Auto Patch MR') {
+    stage('Auto Commit & PR (Optional)') {
       when {
-        expression { fileExists('patch_suggestion.txt') }
+        expression { return env.GH_TOKEN != null }
       }
       steps {
-        sh '''
-          git config --global user.name "agentic-ai-bot"
-          git config --global user.email "bot@example.com"
+        withCredentials([string(credentialsId: 'GH_TOKEN', variable: 'GH_TOKEN')]) {
+          sh '''
+            git config --global user.name "agentic-bot"
+            git config --global user.email "agentic@example.com"
 
-          git checkout -b auto-patch-branch
-          git add reports/*.md reports/*.html patch_suggestion.txt
-          git commit -m "Agentic AI: Auto Patch Suggestions and Report"
-          
-          # Push branch and create MR using GitHub CLI
-          git push origin auto-patch-branch
+            git checkout -b patch/gpt-fixes || git checkout patch/gpt-fixes
+            git add sample_app/vulnerable.py
+            git commit -m "Agentic AI Patch: auto fix vulnerabilities"
+            git push -u origin patch/gpt-fixes
 
-          if ! command -v gh >/dev/null 2>&1; then
-            echo "Installing GitHub CLI..."
-            type -p curl >/dev/null || (apt update && apt install curl -y)
-            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-            curl -fsSL https://cli.github.com/packages/githubcli.list | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-            sudo apt update && sudo apt install gh -y
-          fi
-
-          echo "Creating Pull Request using GitHub CLI..."
-          gh auth login --with-token < ${HOME}/.gh_token  # ensure token is securely available
-          gh pr create --title "Agentic AI Patch MR" --body "Auto-generated MR with patches and vulnerability report" --base main
-        '''
+            echo "${GH_TOKEN}" | gh auth login --with-token
+            gh pr create --title "Auto patch via GPT Agent" --body "Patched critical vulnerabilities via Agentic AI." --base main
+          '''
+        }
       }
     }
 
+  }
+
+  post {
+    always {
+      echo 'Pipeline completed. Reports archived.'
+    }
   }
 }

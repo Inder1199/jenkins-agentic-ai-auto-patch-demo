@@ -1,21 +1,23 @@
-import json, openai
+import os
+import openai
+import json
 
-openai.api_key = "sk-..."  # Replace with your OpenAI key
+# Set API key from environment
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
-def generate_patch(vuln_desc):
-    prompt = f"Fix the following Python vulnerability: {vuln_desc}"
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return response['choices'][0]['message']['content']
-
-with open("trivy_report.json") as f:
+with open("scan_output/trivy_report.json", "r") as f:
     data = json.load(f)
 
-for result in data.get("Results", []):
-    for vuln in result.get("Vulnerabilities", []):
-        suggestion = generate_patch(vuln['Description'])
-        print("Patch Suggestion:\n", suggestion)
-        with open("patch_suggestion.txt", "a") as pf:
-            pf.write(suggestion + "\n\n")
+# Example GPT call (simplified)
+for vuln in data.get("Results", []):
+    for finding in vuln.get("Vulnerabilities", []):
+        prompt = f"Suggest a patch or mitigation for CVE: {finding['VulnerabilityID']}"
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are a DevSecOps assistant."},
+                {"role": "user", "content": prompt}
+            ]
+        )
+        suggestion = response.choices[0].message.content
+        print(f"Fix suggestion for {finding['VulnerabilityID']}:\n{suggestion}\n")
