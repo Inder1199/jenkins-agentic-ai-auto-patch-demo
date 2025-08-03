@@ -5,7 +5,7 @@ import json
 # Set API key from environment
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-with open("scan_output/trivy_report.json", "r") as f:
+with open("trivy_report.json", "r") as f:
     data = json.load(f)
 
 # Example GPT call (simplified)
