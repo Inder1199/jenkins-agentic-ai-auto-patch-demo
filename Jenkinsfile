@@ -78,7 +78,19 @@ pipeline {
           archiveArtifacts artifacts: 'trivy_report.json', fingerprint: true
         }
       }
-}
+    }
+
+    stage('Generate Markdown Report') {
+      steps {
+        dir("${env.WORKSPACE}") {
+          sh '''
+            mkdir -p reports
+            python3 trivy_to_md.py
+          '''
+          archiveArtifacts artifacts: 'reports/trivy_report.md', fingerprint: true
+        }
+      }
+    }
   }
 }
 
