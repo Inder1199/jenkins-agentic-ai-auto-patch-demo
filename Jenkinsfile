@@ -20,15 +20,17 @@ pipeline {
 
     stage('Build Docker Image') {
       steps {
-        dir('agentic-mvp') {
-          sh 'docker context use $DOCKER_CONTEXT'
-          sh 'cp Dockerfile Dockerfile.safe && mv Dockerfile.safe Dockerfile'
-          sh 'cat Dockerfile' 
-          sh 'pwd'
-          sh 'ls -la'
-          sh 'sh "docker build -t local-app -f /Users/user/.jenkins/workspace/agentic-ai-mvp/Dockerfile /Users/user/.jenkins/workspace/agentic-ai-mvp"'
+        dir("${env.WORKSPACE}") {
+          sh '''
+            echo "Present Working Directory:"
+            pwd
+            echo "Contents:"
+            ls -la
+    
+            docker build -t local-app .
+          '''
         }
-      }
+  }
     }
 
     stage('Install Trivy (if missing)') {
