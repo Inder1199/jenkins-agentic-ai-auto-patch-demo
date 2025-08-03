@@ -2,6 +2,7 @@ pipeline {
   agent any
   environment {
     TRIVY_VERSION = "0.51.1"
+    PATH = "/usr/local/bin:${env.PATH}"
   }
 
   stages {
