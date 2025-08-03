@@ -63,11 +63,10 @@ pipeline {
       steps {
         sh '''
           pip3 install markdown --quiet
-          python3 -c "import markdown; print(markdown.markdown(open('${env.WORKSPACE}/${OUTPUT_FILE}').read()))" > ${PATCH_HTML}
+          python3 -c "import markdown, pathlib; pathlib.Path('scan_output/gpt_patch_suggestions.html').write_text(markdown.markdown(pathlib.Path('${WORKSPACE}/${OUTPUT_FILE}').read_text()))"
         '''
       }
     }
-
     stage('Auto Commit & PR (Mandatory)') {
       steps {
         withCredentials([string(credentialsId: 'GH_TOKEN', variable: 'GH_TOKEN')]) {
