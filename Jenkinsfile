@@ -76,5 +76,45 @@ pipeline {
         archiveArtifacts artifacts: 'reports/**', fingerprint: true
       }
     }
+
+        stage('Generate HTML Report') {
+      steps {
+        sh '''
+          python3 trivy_to_html.py reports/trivy_report.json
+        '''
+      }
+    }
+
+    stage('Git Commit + Create Auto Patch MR') {
+      when {
+        expression { fileExists('patch_suggestion.txt') }
+      }
+      steps {
+        sh '''
+          git config --global user.name "agentic-ai-bot"
+          git config --global user.email "bot@example.com"
+
+          git checkout -b auto-patch-branch
+          git add reports/*.md reports/*.html patch_suggestion.txt
+          git commit -m "Agentic AI: Auto Patch Suggestions and Report"
+          
+          # Push branch and create MR using GitHub CLI
+          git push origin auto-patch-branch
+
+          if ! command -v gh >/dev/null 2>&1; then
+            echo "Installing GitHub CLI..."
+            type -p curl >/dev/null || (apt update && apt install curl -y)
+            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+            curl -fsSL https://cli.github.com/packages/githubcli.list | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+            sudo apt update && sudo apt install gh -y
+          fi
+
+          echo "Creating Pull Request using GitHub CLI..."
+          gh auth login --with-token < ${HOME}/.gh_token  # ensure token is securely available
+          gh pr create --title "Agentic AI Patch MR" --body "Auto-generated MR with patches and vulnerability report" --base main
+        '''
+      }
+    }
+
   }
 }
