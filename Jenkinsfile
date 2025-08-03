@@ -4,9 +4,10 @@ pipeline {
   environment {
     OPENAI_API_KEY = credentials('OPENAI_API_KEY')
     IMAGE_NAME = "local-app"
-    REPORT_JSON = "scan_output/trivy_report.json"    // Corrected path
+    REPORT_JSON = "scan_output/trivy_report.json"
     REPORT_MD = "reports/trivy_report.md"
     REPORT_HTML = "reports/trivy_report.html"
+    PATCH_HTML = "scan_output/gpt_patch_suggestions.html"
     PATH = "/usr/local/bin:${env.PATH}"
   }
 
@@ -52,54 +53,53 @@ pipeline {
       }
     }
 
-    // stage('Patch Vulnerabilities (GPT Agent)') {
-    //   steps {
-    //     withEnv(['OPENAI_API_KEY=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']) {
-    //       sh 'python3 patch_agent.py'
-    //     }
-    //   }
-    // }
-
     stage('Patch Vulnerabilities (Ollama Agent)') {
       steps {
         sh 'python3 patch_agent.py'
       }
     }
 
-    stage('Archive Reports') {
+    stage('Convert Patch Suggestions to HTML') {
       steps {
-        archiveArtifacts artifacts: 'reports/*', fingerprint: true
+        sh '''
+          pip3 install markdown --quiet
+          python3 -c "import markdown; print(markdown.markdown(open('${env.WORKSPACE}/${OUTPUT_FILE}').read()))" > ${PATCH_HTML}
+        '''
       }
     }
 
-    stage('Auto Commit & PR (Optional)') {
-      when {
-        expression { return env.GH_TOKEN != null }
-      }
+    stage('Auto Commit & PR (Mandatory)') {
       steps {
         withCredentials([string(credentialsId: 'GH_TOKEN', variable: 'GH_TOKEN')]) {
           sh '''
-            git config --global user.name "agentic-bot"
-            git config --global user.email "agentic@example.com"
+            git config --global user.name "Inder1199"
+            git config --global user.email "inder1199@gmail.com"
 
             git checkout -b patch/gpt-fixes || git checkout patch/gpt-fixes
-            git add sample_app/vulnerable.py
-            git commit -m "Agentic AI Patch: auto fix vulnerabilities"
-            git push -u origin patch/gpt-fixes
+            git add sample_app/vulnerable.py || true
+            git add scan_output/gpt_patch_suggestions.md || true
+            git commit -m "Agentic AI Patch: auto fix vulnerabilities" || echo "No changes to commit"
+            git push -u origin patch/gpt-fixes || echo "Push failed or already exists"
 
             echo "${GH_TOKEN}" | gh auth login --with-token
-            gh pr create --title "Auto patch via GPT Agent" --body "Patched critical vulnerabilities via Agentic AI." --base main
+            gh pr create --title "Auto patch via GPT Agent" --body "Patched critical vulnerabilities via Agentic AI." --base main || echo "PR already exists or failed"
           '''
         }
       }
     }
 
+    stage('Archive Reports') {
+      steps {
+        archiveArtifacts artifacts: 'reports/*', fingerprint: true
+        archiveArtifacts artifacts: 'scan_output/*.md', fingerprint: true
+        archiveArtifacts artifacts: 'scan_output/*.html', fingerprint: true
+      }
+    }
   }
 
   post {
     always {
-      archiveArtifacts artifacts: 'scan_output/*.md', fingerprint: true
-      echo 'Pipeline completed. Reports archived.'
+      echo 'Pipeline completed. Reports and patch suggestions archived.'
     }
   }
 }
