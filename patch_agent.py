@@ -1,20 +1,27 @@
 import json
 import os
 import sys
+import time
 from openai import OpenAI
 
-# Initialize OpenAI client with the available model
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Environment variables
+OPENAI_KEY = os.getenv("OPENAI_API_KEY")
+if not OPENAI_KEY:
+    print("❌ OPENAI_API_KEY is not set.")
+    sys.exit(1)
 
-MODEL = "gpt-3.5-turbo"  # Use the accessible model
+client = OpenAI(api_key=OPENAI_KEY)
+
+PRIMARY_MODEL = "gpt-4"
+FALLBACK_MODEL = "gpt-3.5-turbo"
 
 # Load Trivy scan results
-trivy_report = "scan_output/trivy_report.json"
-if not os.path.exists(trivy_report):
+TRIVY_REPORT = "scan_output/trivy_report.json"
+if not os.path.exists(TRIVY_REPORT):
     print("❌ Trivy report not found at scan_output/trivy_report.json")
     sys.exit(1)
 
-with open(trivy_report, "r") as f:
+with open(TRIVY_REPORT, "r") as f:
     data = json.load(f)
 
 results = data.get("Results", [])
@@ -28,6 +35,30 @@ patch_suggestions = []
 processed_count = 0
 skipped_count = 0
 
+
+def get_patch_suggestion(prompt: str, model: str) -> str:
+    """Fetch patch suggestion from GPT model with retries."""
+    for attempt in range(3):
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": "You are a security DevOps assistant."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=500,
+                temperature=0.3,
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            print(f"⚠️ Attempt {attempt + 1} with {model} failed: {e}")
+            if "insufficient_quota" in str(e) or "rate_limit" in str(e):
+                time.sleep(2 ** attempt)  # backoff
+            else:
+                break
+    return None
+
+
 for idx, target in enumerate(results):
     target_name = target.get("Target", "unknown")
     vulns = target.get("Vulnerabilities", [])
@@ -36,7 +67,7 @@ for idx, target in enumerate(results):
         print(f"⏭️ No vulnerabilities in: {target_name}")
         continue
 
-    print(f"\n📦 Target {idx+1}: {target_name} — {len(vulns)} vulnerabilities")
+    print(f"\n📦 Target {idx + 1}: {target_name} — {len(vulns)} vulnerabilities")
 
     for vuln in vulns:
         vuln_id = vuln.get("VulnerabilityID")
@@ -61,22 +92,16 @@ for idx, target in enumerate(results):
             "Keep it concise and clear."
         )
 
-        try:
-            response = client.chat.completions.create(
-                model=MODEL,
-                messages=[
-                    {"role": "system", "content": "You are a security DevOps assistant."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=500,
-                temperature=0.3,
-            )
-            suggestion = response.choices[0].message.content.strip()
+        suggestion = get_patch_suggestion(prompt, PRIMARY_MODEL)
+        if not suggestion:
+            suggestion = get_patch_suggestion(prompt, FALLBACK_MODEL)
+
+        if suggestion:
             patch_suggestions.append(f"## {vuln_id} ({severity}) in `{pkg}`\n\n{suggestion}\n")
             processed_count += 1
-        except Exception as e:
-            print(f"⚠️ Failed to fetch suggestion for {vuln_id}: {e}")
-            continue
+        else:
+            print(f"⚠️ Skipped {vuln_id} due to repeated failures.")
+            skipped_count += 1
 
 # Write output
 output_path = "scan_output/gpt_patch_suggestions.md"
