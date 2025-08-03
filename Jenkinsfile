@@ -22,7 +22,7 @@ pipeline {
       steps {
         dir('agentic-mvp') {
           sh 'docker context use $DOCKER_CONTEXT'
-          sh 'docker version'
+          sh 'cp Dockerfile Dockerfile.safe && mv Dockerfile.safe Dockerfile'
           sh 'cat Dockerfile' 
           sh 'pwd'
           sh 'ls -la'
