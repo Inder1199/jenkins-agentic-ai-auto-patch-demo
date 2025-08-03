@@ -7,6 +7,7 @@ pipeline {
     REPORT_JSON = "trivy_report.json"
     REPORT_MD = "reports/trivy_report.md"
     REPORT_HTML = "reports/trivy_report.html"
+    PATH = "/opt/homebrew/bin:$PATH"
   }
 
   stages {
