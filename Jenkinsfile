@@ -83,12 +83,21 @@ pipeline {
             git commit -m "Agentic AI Patch: auto fix vulnerabilities" || echo "No changes to commit"
             git push -u origin patch/gpt-fixes || echo "Push failed or already exists"
 
-            echo "${GH_TOKEN}" | gh auth login --with-token
-            gh pr create --title "Auto patch via GPT Agent" --body "Patched critical vulnerabilities via Agentic AI." --base main || echo "PR already exists or failed"
+            # Attempt to create PR using GitHub REST API
+            curl -s -X POST -H "Authorization: token ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              https://api.github.com/repos/Inder1199/jenkins-agentic-ai-mvp-devsecops/pulls \
+              -d '{
+                "title": "Auto patch via GPT Agent",
+                "body": "Patched critical vulnerabilities via Agentic AI.",
+                "head": "patch/gpt-fixes",
+                "base": "main"
+              }' || echo "PR may already exist or failed"
           '''
         }
       }
     }
+
 
     stage('Archive Reports') {
       steps {
