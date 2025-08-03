@@ -50,8 +50,11 @@ pipeline {
 
     stage('Trivy Scan') {
       steps {
-        dir('agentic-mvp') {
-          sh 'trivy image --format json -o trivy_report.json local-app'
+        dir("${env.WORKSPACE}") {
+          sh '''
+            trivy fs --format json --output trivy_report.json sample_app/
+            ls -lh trivy_report.json
+          '''
         }
       }
     }
