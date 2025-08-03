@@ -101,4 +101,10 @@ pipeline {
       echo 'Pipeline completed. Reports archived.'
     }
   }
+
+  post {
+    always {
+      archiveArtifacts artifacts: 'scan_output/*.md', fingerprint: true
+    }
+  }
 }
