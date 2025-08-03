@@ -4,7 +4,7 @@ pipeline {
   environment {
     OPENAI_API_KEY = credentials('OPENAI_API_KEY')
     IMAGE_NAME = "local-app"
-    REPORT_JSON = "trivy_report.json"
+    REPORT_JSON = "scan_output/trivy_report.json"    // Corrected path
     REPORT_MD = "reports/trivy_report.md"
     REPORT_HTML = "reports/trivy_report.html"
     PATH = "/usr/local/bin:${env.PATH}"
@@ -26,8 +26,8 @@ pipeline {
             pwd
             echo "Contents:"
             ls -la
-    
-            docker build -t local-app .
+
+            docker build -t ${IMAGE_NAME} .
           '''
         }
       }
@@ -35,14 +35,17 @@ pipeline {
 
     stage('Run Trivy Scan') {
       steps {
-        sh 'mkdir -p reports'
-        sh 'trivy image --format json -o ${REPORT_JSON} ${IMAGE_NAME}'
+        sh '''
+          mkdir -p scan_output
+          trivy image --format json -o ${REPORT_JSON} ${IMAGE_NAME}
+        '''
       }
     }
 
     stage('Generate Reports') {
       steps {
         sh '''
+          mkdir -p reports
           python3 trivy_to_md.py ${REPORT_JSON} > ${REPORT_MD}
           python3 trivy_to_html.py ${REPORT_JSON} > ${REPORT_HTML}
         '''
