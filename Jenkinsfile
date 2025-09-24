@@ -15,7 +15,7 @@ pipeline {
 
     stage('Checkout') {
       steps {
-        git branch: 'main', url: 'https://github.com/Inder1199/jenkins-agentic-ai-mvp-devsecops.git'
+        git branch: 'main', url: 'https://github.com/Inder1199/jenkins-agentic-ai-auto-patch-demo.git'
       }
     }
 
