@@ -59,16 +59,27 @@ pipeline {
       }
     }
 
-    stage('Convert Patch Suggestions to HTML') {
-      steps {
-        sh '''
-          python3 -m venv .venv
-          source .venv/bin/activate
-          pip install -r sample_app/requirements.txt
-          python3 -c "import markdown, pathlib; pathlib.Path('${PATCH_HTML}').write_text(markdown.markdown(pathlib.Path('${WORKSPACE}/scan_output/gpt_patch_suggestions.md').read_text()))"
-        '''
-      }
+    stage('Convert GPT Patch Suggestions to HTML') {
+        steps {
+            sh '''
+                # Ensure output folder exists
+                mkdir -p scan_output
+    
+                # Debug: show files in scan_output
+                echo "📂 Contents of scan_output before conversion:"
+                ls -la scan_output || true
+    
+                # Convert Markdown to HTML if file exists
+                if [ -f scan_output/gpt_patch_suggestions.md ]; then
+                    echo "✅ Found gpt_patch_suggestions.md, converting to HTML..."
+                    python3 -c "import markdown, pathlib; pathlib.Path('scan_output/gpt_patch_suggestions.html').write_text(markdown.markdown(pathlib.Path('scan_output/gpt_patch_suggestions.md').read_text()))"
+                else
+                    echo "⚠️ No gpt_patch_suggestions.md found, skipping HTML conversion."
+                fi
+            '''
+        }
     }
+
 
     stage('Auto Commit & PR (Mandatory)') {
       steps {
