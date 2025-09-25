@@ -34,11 +34,31 @@ pipeline {
       }
     }
 
+    stage('Start Ollama') {
+      steps {
+        sh '''
+          if ! pgrep -x "ollama" > /dev/null; then
+            echo "🚀 Starting Ollama server..."
+            nohup ollama serve > ollama.log 2>&1 &
+            sleep 10
+          else
+            echo "✅ Ollama already running."
+          fi
+
+          echo "📥 Pulling llama3 model..."
+          ollama pull llama3 || true
+        '''
+      }
+    }
+
     stage('Run Trivy Scan') {
       steps {
         sh '''
           mkdir -p scan_output
-          trivy image --format json -o ${REPORT_JSON} ${IMAGE_NAME}
+          echo "📥 Updating Trivy DB..."
+          trivy image --download-db-only
+          echo "🔍 Running Trivy scan..."
+          trivy image --severity CRITICAL --format json -o ${REPORT_JSON} ${IMAGE_NAME}
         '''
       }
     }
@@ -60,26 +80,21 @@ pipeline {
     }
 
     stage('Convert GPT Patch Suggestions to HTML') {
-        steps {
-            sh '''
-                # Ensure output folder exists
-                mkdir -p scan_output
-    
-                # Debug: show files in scan_output
-                echo "📂 Contents of scan_output before conversion:"
-                ls -la scan_output || true
-    
-                # Convert Markdown to HTML if file exists
-                if [ -f scan_output/gpt_patch_suggestions.md ]; then
-                    echo "✅ Found gpt_patch_suggestions.md, converting to HTML..."
-                    python3 -c "import markdown, pathlib; pathlib.Path('scan_output/gpt_patch_suggestions.html').write_text(markdown.markdown(pathlib.Path('scan_output/gpt_patch_suggestions.md').read_text()))"
-                else
-                    echo "⚠️ No gpt_patch_suggestions.md found, skipping HTML conversion."
-                fi
-            '''
-        }
-    }
+      steps {
+        sh '''
+          mkdir -p scan_output
+          echo "📂 Contents of scan_output before conversion:"
+          ls -la scan_output || true
 
+          if [ -f scan_output/gpt_patch_suggestions.md ]; then
+            echo "✅ Found gpt_patch_suggestions.md, converting to HTML..."
+            python3 -c "import markdown, pathlib; pathlib.Path('scan_output/gpt_patch_suggestions.html').write_text(markdown.markdown(pathlib.Path('scan_output/gpt_patch_suggestions.md').read_text()))"
+          else
+            echo "⚠️ No gpt_patch_suggestions.md found, skipping HTML conversion."
+          fi
+        '''
+      }
+    }
 
     stage('Auto Commit & PR (Mandatory)') {
       steps {
@@ -135,7 +150,7 @@ pipeline {
       }
     }
 
-  } // ✅ closes `stages`
+  }
 
   post {
     always {
@@ -143,4 +158,4 @@ pipeline {
     }
   }
 
-} // ✅ closes `pipeline`
+}
