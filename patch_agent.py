@@ -8,21 +8,23 @@ OLLAMA_MODEL = "llama3"
 TRIVY_REPORT = "scan_output/trivy_report.json"
 OUTPUT_FILE = "scan_output/gpt_patch_suggestions.md"
 
+
 def is_ollama_running(host="localhost", port=11434) -> bool:
     """Check if ollama serve is running."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         return sock.connect_ex((host, port)) == 0
 
+
+# 🔍 Ensure Ollama is running
 if not is_ollama_running():
     print("❌ Ollama server is not running. Please run: `ollama serve &`")
     sys.exit(1)
 
-# Check if Trivy scan report exists
+# 🔍 Ensure Trivy report exists
 if not os.path.exists(TRIVY_REPORT):
     print("❌ Trivy report not found at scan_output/trivy_report.json")
     sys.exit(1)
 
-# Load Trivy report
 with open(TRIVY_REPORT, "r") as f:
     data = json.load(f)
 
@@ -33,7 +35,7 @@ if not results:
 
 print(f"🔍 Found {len(results)} target(s) in Trivy scan report")
 
-# Collect only top 2 CRITICAL vulnerabilities
+# 📌 Collect up to 2 CRITICAL vulnerabilities
 critical_vulns = []
 for target in results:
     for vuln in target.get("Vulnerabilities", []):
@@ -50,16 +52,16 @@ if not critical_vulns:
 
 print(f"🚨 Selected {len(critical_vulns)} CRITICAL vulnerabilities for patch suggestion")
 
-patch_suggestions = []
 
 def get_ollama_suggestion(prompt: str) -> str:
     try:
+        print(f"🟢 Sending prompt to Ollama (first 300 chars):\n{prompt[:300]}...\n")
         result = subprocess.run(
             ["ollama", "run", OLLAMA_MODEL],
             input=prompt.encode(),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            timeout=90  # Increased timeout
+            timeout=120,
         )
         if result.returncode != 0:
             print(f"⚠️ Ollama error: {result.stderr.decode().strip()}")
@@ -72,7 +74,8 @@ def get_ollama_suggestion(prompt: str) -> str:
         print(f"❌ Unexpected error: {e}")
         return None
 
-# Process and generate patch suggestions
+
+patch_suggestions = []
 for target_name, vuln in critical_vulns:
     vuln_id = vuln.get("VulnerabilityID")
     pkg = vuln.get("PkgName")
@@ -101,7 +104,7 @@ for target_name, vuln in critical_vulns:
     else:
         print(f"⚠️ Skipped {vuln_id} due to Ollama failure.")
 
-# Write results to markdown
+# 📝 Write results
 if patch_suggestions:
     os.makedirs("scan_output", exist_ok=True)
     with open(OUTPUT_FILE, "w") as f:
