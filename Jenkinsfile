@@ -21,18 +21,18 @@ pipeline {
 
     stage('Build Docker Image') {
       steps {
-        dir("${env.WORKSPACE}") {
+        withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
           sh '''
-            echo "Present Working Directory:"
-            pwd
-            echo "Contents:"
-            ls -la
-
+            echo "🔑 Logging in to Docker Hub..."
+            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+    
             docker build -t ${IMAGE_NAME} .
+            docker logout
           '''
         }
       }
     }
+
 
     stage('Start Ollama') {
       steps {
